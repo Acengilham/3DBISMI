@@ -20,55 +20,200 @@ const modalMainImage = document.getElementById('modalMainImage');
 const thumbnailsContainer = document.getElementById('thumbnails');
 const modalProductTitle = document.getElementById('modalProductTitle');
 const modalProductDescription = document.getElementById('modalProductDescription');
+const modalProductCategory = document.getElementById('modalProductCategory');
 const shopeeBtn = document.getElementById('shopeeBtn');
 const waBtn = document.getElementById('waBtn');
 const closeModal = document.querySelector('.close');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const categoryTagsContainer = document.getElementById('categoryTags');
+const loadMoreBtn = document.getElementById('loadMoreBtn');
+const prevSlideBtn = document.getElementById('prevSlide');
+const nextSlideBtn = document.getElementById('nextSlide');
+const slideDotsContainer = document.getElementById('slideDots');
 
-// Ambil data produk dari Firebase
+// Variabel global
+let allProducts = [];
+let filteredProducts = [];
+let visibleProducts = 8;
+const productsPerLoad = 4;
+let currentCategory = '';
+let currentSearchTerm = '';
+let currentSlide = 0;
+let slideInterval;
+
+// Fungsi untuk memuat produk
 function fetchProducts() {
-    database.ref('products').once('value', (snapshot) => {
-        const products = snapshot.val();
+    console.log("Memulai pengambilan data produk...");
+    
+    // Tampilkan loading spinner
+    productsContainer.innerHTML = '<div class="loading-spinner"></div>';
+    
+    // Ambil produk dan kategori sekaligus
+    Promise.all([
+        database.ref('products').once('value'),
+        database.ref('categories').once('value')
+    ]).then(([productsSnapshot, categoriesSnapshot]) => {
+        console.log("Data produk diterima:", productsSnapshot.val());
+        
+        const products = productsSnapshot.val();
+        const categories = categoriesSnapshot.val();
+        
         if (products) {
-            renderProducts(products);
+            allProducts = Object.entries(products).map(([id, product]) => ({ 
+                id, 
+                ...product,
+                category: product.category || '' 
+            }));
+            
+            console.log("Produk yang diproses:", allProducts);
+            
+            filteredProducts = [...allProducts];
+            renderProducts();
+            renderCategoryTags(categories);
         } else {
+            console.log("Tidak ada produk ditemukan");
             productsContainer.innerHTML = '<p class="no-products">Tidak ada produk yang tersedia saat ini.</p>';
         }
+    }).catch((error) => {
+        console.error("Error mengambil data:", error);
+        productsContainer.innerHTML = '<p class="no-products">Gagal memuat produk. Silakan refresh halaman.</p>';
     });
 }
 
-// Render produk ke halaman
-function renderProducts(products) {
+// Fungsi untuk merender produk
+function renderProducts() {
+    console.log("Merender produk...", filteredProducts.length);
+    
     productsContainer.innerHTML = '';
     
-    Object.keys(products).forEach(key => {
-        const product = products[key];
-        const firstImage = product.images ? product.images[0] : 'https://via.placeholder.com/300';
+    const productsToShow = filteredProducts.slice(0, visibleProducts);
+    
+    if (productsToShow.length === 0) {
+        let message = 'Tidak ada produk yang cocok.';
+        if (currentCategory) message += ` Kategori: ${currentCategory}`;
+        if (currentSearchTerm) message += ` Pencarian: "${currentSearchTerm}"`;
+        
+        productsContainer.innerHTML = `<p class="no-products">${message}</p>`;
+        loadMoreBtn.style.display = 'none';
+        return;
+    }
+    
+    productsToShow.forEach(product => {
+        const firstImage = product.images && product.images.length > 0 ? 
+                          product.images[0] : 
+                          'https://via.placeholder.com/300?text=No+Image';
         
         const productCard = document.createElement('div');
         productCard.className = 'product-card';
-        productCard.dataset.id = key;
+        productCard.dataset.id = product.id;
         
         productCard.innerHTML = `
             <div class="product-image">
-                <img src="${firstImage}" alt="${product.title}">
+                <img src="${firstImage}" alt="${product.title || 'Produk'}" loading="lazy">
             </div>
             <div class="product-info">
-                <h3>${product.title}</h3>
-                <p>${product.description}</p>
+                <h3>${product.title || 'Tanpa Judul'}</h3>
+                <p>${product.description || 'Tidak ada deskripsi'}</p>
+                ${product.category ? `<span class="product-category">${product.category}</span>` : ''}
             </div>
         `;
         
-        productCard.addEventListener('click', () => openProductModal(key, product));
+        productCard.addEventListener('click', () => openProductModal(product.id, product));
         productsContainer.appendChild(productCard);
     });
+    
+    loadMoreBtn.style.display = visibleProducts >= filteredProducts.length ? 'none' : 'inline-block';
 }
 
-// Buka modal produk
+// Fungsi untuk merender kategori
+function renderCategoryTags(categories) {
+    console.log("Merender kategori...", categories);
+    
+    categoryTagsContainer.innerHTML = '';
+    
+    // Tambahkan tombol "Semua Kategori"
+    const allCategoriesTag = document.createElement('div');
+    allCategoriesTag.className = 'category-tag active';
+    allCategoriesTag.textContent = 'Semua Kategori';
+    allCategoriesTag.addEventListener('click', () => {
+        document.querySelectorAll('.category-tag').forEach(tag => tag.classList.remove('active'));
+        allCategoriesTag.classList.add('active');
+        currentCategory = '';
+        filterProducts();
+    });
+    categoryTagsContainer.appendChild(allCategoriesTag);
+    
+    // Tambahkan kategori dari database
+    if (categories) {
+        Object.values(categories).forEach(category => {
+            const categoryTag = document.createElement('div');
+            categoryTag.className = 'category-tag';
+            categoryTag.textContent = category.name;
+            categoryTag.addEventListener('click', () => {
+                document.querySelectorAll('.category-tag').forEach(tag => tag.classList.remove('active'));
+                categoryTag.classList.add('active');
+                currentCategory = category.name;
+                filterProducts();
+            });
+            categoryTagsContainer.appendChild(categoryTag);
+        });
+    }
+}
+
+// Fungsi untuk memfilter produk
+function filterProducts() {
+    console.log("Memfilter produk...", {
+        currentCategory, 
+        currentSearchTerm,
+        allProductsCount: allProducts.length
+    });
+    
+    filteredProducts = allProducts.filter(product => {
+        // Filter kategori
+        const categoryMatch = !currentCategory || 
+                            (product.category && 
+                             product.category.toLowerCase() === currentCategory.toLowerCase());
+        
+        // Filter pencarian
+        const searchMatch = !currentSearchTerm || 
+                          (product.title && product.title.toLowerCase().includes(currentSearchTerm.toLowerCase())) || 
+                          (product.description && product.description.toLowerCase().includes(currentSearchTerm.toLowerCase())) ||
+                          (product.category && product.category.toLowerCase().includes(currentSearchTerm.toLowerCase()));
+        
+        return categoryMatch && searchMatch;
+    });
+    
+    console.log("Produk setelah filter:", filteredProducts.length);
+    
+    // Reset visible products
+    visibleProducts = 8;
+    renderProducts();
+}
+
+// Fungsi untuk membuka modal produk
 function openProductModal(productId, product) {
-    modalProductTitle.textContent = product.title;
-    modalProductDescription.textContent = product.description;
+    modalProductTitle.textContent = product.title || 'Tanpa Judul';
+    modalProductDescription.textContent = product.description || 'Tidak ada deskripsi';
+    
+    // Set kategori produk
+    if (product.category) {
+        modalProductCategory.textContent = product.category;
+        modalProductCategory.style.display = 'inline-block';
+    } else {
+        modalProductCategory.style.display = 'none';
+    }
+    
+    // Set link Shopee dan WhatsApp
     shopeeBtn.href = product.shopeeLink || '#';
-    waBtn.href = `https://wa.me/${product.waNumber}?text=Saya%20tertarik%20dengan%20produk%20${encodeURIComponent(product.title)}`;
+    shopeeBtn.style.display = product.shopeeLink ? 'inline-flex' : 'none';
+    
+    if (product.waNumber) {
+        waBtn.href = `https://wa.me/${product.waNumber}?text=Saya%20tertarik%20dengan%20produk%20${encodeURIComponent(product.title || '')}`;
+        waBtn.style.display = 'inline-flex';
+    } else {
+        waBtn.style.display = 'none';
+    }
     
     // Set gambar utama dan thumbnail
     thumbnailsContainer.innerHTML = '';
@@ -83,6 +228,7 @@ function openProductModal(productId, product) {
             const img = document.createElement('img');
             img.src = image;
             img.alt = `Thumbnail ${index + 1}`;
+            img.loading = 'lazy';
             
             thumbnail.appendChild(img);
             thumbnail.addEventListener('click', () => {
@@ -94,66 +240,29 @@ function openProductModal(productId, product) {
             thumbnailsContainer.appendChild(thumbnail);
         });
     } else {
-        modalMainImage.src = 'https://via.placeholder.com/500';
+        modalMainImage.src = 'https://via.placeholder.com/500?text=No+Image';
     }
     
     productModal.style.display = 'block';
     document.body.style.overflow = 'hidden';
 }
 
-// Tutup modal
-closeModal.addEventListener('click', () => {
-    productModal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-});
-
-// Tutup modal ketika klik di luar konten
-window.addEventListener('click', (e) => {
-    if (e.target === productModal) {
-        productModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-});
-
-// Load produk saat halaman dimuat
-window.addEventListener('DOMContentLoaded', fetchProducts);
-// Tambahkan kode ini ke file app.js yang sudah ada
-
-// DOM Elements baru
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const bannerSlidesContainer = document.getElementById('bannerSlides');
-const slideDotsContainer = document.getElementById('slideDots');
-const prevSlideBtn = document.getElementById('prevSlide');
-const nextSlideBtn = document.getElementById('nextSlide');
-
-// Banner Slider Functionality
-let currentSlide = 0;
-const slides = document.querySelectorAll('.banner-slide');
-const dots = document.querySelectorAll('.dot');
-let slideInterval;
-
+// Fungsi untuk slider banner
 function startSlider() {
+    const slides = document.querySelectorAll('.banner-slide');
+    const dots = document.querySelectorAll('.dot');
+    
     slideInterval = setInterval(() => {
         currentSlide = (currentSlide + 1) % slides.length;
-        updateSlider();
-    }, 5000); // Ganti slide setiap 5 detik
+        updateSlider(slides, dots);
+    }, 5000);
 }
 
-function updateSlider() {
-    // Update slide position
+function updateSlider(slides, dots) {
     document.querySelector('.slides-container').style.transform = `translateX(-${currentSlide * 100}%)`;
-    
-    // Update dots
     dots.forEach((dot, index) => {
         dot.classList.toggle('active', index === currentSlide);
     });
-}
-
-function goToSlide(index) {
-    currentSlide = index;
-    updateSlider();
-    resetSliderTimer();
 }
 
 function resetSliderTimer() {
@@ -161,95 +270,38 @@ function resetSliderTimer() {
     startSlider();
 }
 
-// Event listeners untuk tombol slider
-document.getElementById('prevSlide').addEventListener('click', () => {
-    currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-    updateSlider();
-    resetSliderTimer();
+// Event Listeners
+closeModal.addEventListener('click', () => {
+    productModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
 });
 
-document.getElementById('nextSlide').addEventListener('click', () => {
-    currentSlide = (currentSlide + 1) % slides.length;
-    updateSlider();
-    resetSliderTimer();
-});
-
-// Event listeners untuk dots
-dots.forEach((dot, index) => {
-    dot.addEventListener('click', () => goToSlide(index));
-});
-
-// Mulai slider saat halaman dimuat
-window.addEventListener('DOMContentLoaded', () => {
-    fetchProducts();
-    startSlider();
-});
-// Variabel global
-let allProducts = [];
-let visibleProducts = 8; // Jumlah produk awal yang ditampilkan
-const productsPerLoad = 4; // Jumlah produk tambahan saat klik Show More
-
-// Fungsi fetchProducts diubah menjadi:
-function fetchProducts() {
-    database.ref('products').once('value', (snapshot) => {
-        const products = snapshot.val();
-        if (products) {
-            // Simpan semua produk di variabel global
-            allProducts = Object.entries(products).map(([id, product]) => ({ id, ...product }));
-            renderProducts();
-        } else {
-            productsContainer.innerHTML = '<p class="no-products">Tidak ada produk yang tersedia saat ini.</p>';
-        }
-    });
-}
-
-// Fungsi renderProducts baru:
-function renderProducts() {
-    productsContainer.innerHTML = '';
-    
-    // Tampilkan hanya produk yang terlihat
-    const productsToShow = allProducts.slice(0, visibleProducts);
-    
-    productsToShow.forEach(product => {
-        const firstImage = product.images ? product.images[0] : 'https://via.placeholder.com/300';
-        
-        const productCard = document.createElement('div');
-        productCard.className = 'product-card';
-        productCard.dataset.id = product.id;
-        
-        productCard.innerHTML = `
-            <div class="product-image">
-                <img src="${firstImage}" alt="${product.title}">
-            </div>
-            <div class="product-info">
-                <h3>${product.title}</h3>
-                <p>${product.description}</p>
-            </div>
-        `;
-        
-        productCard.addEventListener('click', () => openProductModal(product.id, product));
-        productsContainer.appendChild(productCard);
-    });
-    
-    // Sembunyikan tombol jika semua produk sudah ditampilkan
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (visibleProducts >= allProducts.length) {
-        loadMoreBtn.style.display = 'none';
-    } else {
-        loadMoreBtn.style.display = 'inline-block';
+window.addEventListener('click', (e) => {
+    if (e.target === productModal) {
+        productModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
     }
-}
+});
 
-// Fungsi untuk menangani Show More
-document.getElementById('loadMoreBtn').addEventListener('click', function() {
-    // Animasi klik
+// Pencarian produk
+searchBtn.addEventListener('click', () => {
+    currentSearchTerm = searchInput.value.trim();
+    filterProducts();
+});
+
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        currentSearchTerm = searchInput.value.trim();
+        filterProducts();
+    }
+});
+
+// Tombol load more
+loadMoreBtn.addEventListener('click', function() {
     this.classList.add('clicked');
     setTimeout(() => this.classList.remove('clicked'), 500);
     
-    // Tambah jumlah produk yang terlihat
     visibleProducts += productsPerLoad;
-    
-    // Render ulang produk
     renderProducts();
     
     // Scroll halus ke produk baru
@@ -259,23 +311,43 @@ document.getElementById('loadMoreBtn').addEventListener('click', function() {
     }
 });
 
-// Fungsi searchProducts diubah untuk mendukung Show More:
-function searchProducts(query) {
-    const filtered = allProducts.filter(product => {
-        const searchText = `${product.title} ${product.description}`.toLowerCase();
-        return searchText.includes(query.toLowerCase());
-    });
-    
-    // Reset visible products saat pencarian
-    visibleProducts = 8;
-    
-    // Simpan hasil pencarian di allProducts
-    allProducts = filtered;
-    renderProducts();
-}
+// Event listeners untuk slider
+prevSlideBtn.addEventListener('click', () => {
+    const slides = document.querySelectorAll('.banner-slide');
+    currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+    updateSlider(slides, document.querySelectorAll('.dot'));
+    resetSliderTimer();
+});
 
-// Load produk saat halaman dimuat
+nextSlideBtn.addEventListener('click', () => {
+    const slides = document.querySelectorAll('.banner-slide');
+    currentSlide = (currentSlide + 1) % slides.length;
+    updateSlider(slides, document.querySelectorAll('.dot'));
+    resetSliderTimer();
+});
+
+// Event listeners untuk dots
+document.querySelectorAll('.dot').forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+        currentSlide = index;
+        updateSlider(document.querySelectorAll('.banner-slide'), document.querySelectorAll('.dot'));
+        resetSliderTimer();
+    });
+});
+
+// Error handling global
+window.addEventListener('error', function(event) {
+    console.error("Error global:", event.error);
+    productsContainer.innerHTML = '<p class="no-products">Terjadi kesalahan. Silakan refresh halaman.</p>';
+});
+
+// Load produk dan mulai slider saat halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
-    fetchProducts();
-    // Fungsi lainnya tetap sama...
+    try {
+        fetchProducts();
+        startSlider();
+    } catch (error) {
+        console.error("Error inisialisasi:", error);
+        productsContainer.innerHTML = '<p class="no-products">Gagal memuat data. Silakan refresh halaman.</p>';
+    }
 });

@@ -1,4 +1,4 @@
-// Konfigurasi Firebase (sama dengan di app.js)
+// Konfigurasi Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyAwNsZFIlbkdce8z74HxEHPRmu2X26J3yo",
     authDomain: "dbismi.firebaseapp.com",
@@ -18,18 +18,38 @@ const productForm = document.getElementById('productForm');
 const productIdInput = document.getElementById('productId');
 const productTitleInput = document.getElementById('productTitle');
 const productDescriptionInput = document.getElementById('productDescription');
+const productCategoryInput = document.getElementById('productCategory');
 const shopeeLinkInput = document.getElementById('shopeeLink');
 const waNumberInput = document.getElementById('waNumber');
 const imageInputsContainer = document.getElementById('imageInputs');
 const addImageBtn = document.getElementById('addImageBtn');
 const resetFormBtn = document.getElementById('resetFormBtn');
 const productListContainer = document.getElementById('productList');
+const newCategoryNameInput = document.getElementById('newCategoryName');
+const addCategoryBtn = document.getElementById('addCategoryBtn');
+const categoryListContainer = document.getElementById('categoryList');
+
+// SweetAlert Configuration
+const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+        toast.addEventListener('mouseenter', Swal.stopTimer)
+        toast.addEventListener('mouseleave', Swal.resumeTimer)
+    }
+});
 
 // Tambah input gambar
 addImageBtn.addEventListener('click', () => {
     const imageCount = document.querySelectorAll('.image-input').length;
     if (imageCount >= 5) {
-        alert('Maksimal 5 gambar per produk');
+        Toast.fire({
+            icon: 'warning',
+            title: 'Maksimal 5 gambar per produk'
+        });
         return;
     }
     
@@ -67,7 +87,7 @@ function resetForm() {
     });
 }
 
-// Submit form
+// Submit form produk
 productForm.addEventListener('submit', (e) => {
     e.preventDefault();
     
@@ -80,7 +100,19 @@ productForm.addEventListener('submit', (e) => {
     });
     
     if (imageUrls.length === 0) {
-        alert('Harap masukkan minimal 1 gambar produk');
+        Toast.fire({
+            icon: 'error',
+            title: 'Harap masukkan minimal 1 gambar produk'
+        });
+        return;
+    }
+    
+    // Validasi kategori
+    if (!productCategoryInput.value) {
+        Toast.fire({
+            icon: 'error',
+            title: 'Harap pilih kategori produk'
+        });
         return;
     }
     
@@ -88,6 +120,7 @@ productForm.addEventListener('submit', (e) => {
     const product = {
         title: productTitleInput.value.trim(),
         description: productDescriptionInput.value.trim(),
+        category: productCategoryInput.value,
         shopeeLink: shopeeLinkInput.value.trim(),
         waNumber: waNumberInput.value.trim(),
         images: imageUrls,
@@ -96,36 +129,222 @@ productForm.addEventListener('submit', (e) => {
     
     // Simpan ke Firebase
     const productId = productIdInput.value;
+    const loadingSwal = Swal.fire({
+        title: 'Menyimpan data...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     if (productId) {
         // Update produk yang ada
         database.ref(`products/${productId}`).update(product)
             .then(() => {
-                alert('Produk berhasil diperbarui!');
+                loadingSwal.close();
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Produk berhasil diperbarui!'
+                });
                 resetForm();
                 fetchProducts();
             })
             .catch(error => {
+                loadingSwal.close();
                 console.error('Error updating product: ', error);
-                alert('Gagal memperbarui produk');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal memperbarui produk',
+                    text: error.message
+                });
             });
     } else {
         // Tambah produk baru
         database.ref('products').push(product)
             .then(() => {
-                alert('Produk berhasil ditambahkan!');
+                loadingSwal.close();
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Produk berhasil ditambahkan!'
+                });
                 resetForm();
                 fetchProducts();
             })
             .catch(error => {
+                loadingSwal.close();
                 console.error('Error adding product: ', error);
-                alert('Gagal menambahkan produk');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal menambahkan produk',
+                    text: error.message
+                });
             });
     }
 });
 
+// Tambah kategori baru
+addCategoryBtn.addEventListener('click', () => {
+    const categoryName = newCategoryNameInput.value.trim();
+    
+    if (!categoryName) {
+        Toast.fire({
+            icon: 'error',
+            title: 'Harap masukkan nama kategori'
+        });
+        return;
+    }
+    
+    const loadingSwal = Swal.fire({
+        title: 'Menambahkan kategori...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Cek apakah kategori sudah ada
+    database.ref('categories').orderByChild('name').equalTo(categoryName).once('value')
+        .then(snapshot => {
+            if (snapshot.exists()) {
+                loadingSwal.close();
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Kategori sudah ada'
+                });
+                return;
+            }
+            
+            // Tambahkan kategori baru
+            database.ref('categories').push({
+                name: categoryName,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            })
+            .then(() => {
+                loadingSwal.close();
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Kategori berhasil ditambahkan!'
+                });
+                newCategoryNameInput.value = '';
+                fetchCategories();
+            })
+            .catch(error => {
+                loadingSwal.close();
+                console.error('Error adding category: ', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal menambahkan kategori',
+                    text: error.message
+                });
+            });
+        })
+        .catch(error => {
+            loadingSwal.close();
+            console.error('Error checking category: ', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Terjadi kesalahan',
+                text: error.message
+            });
+        });
+});
+
+// Hapus kategori
+function deleteCategory(categoryId) {
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: "Kategori yang dihapus akan dihapus dari semua produk terkait!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const loadingSwal = Swal.fire({
+                title: 'Menghapus kategori...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Dapatkan nama kategori untuk referensi
+            database.ref(`categories/${categoryId}`).once('value')
+                .then(snapshot => {
+                    const categoryName = snapshot.val().name;
+                    
+                    // Hapus kategori
+                    database.ref(`categories/${categoryId}`).remove()
+                        .then(() => {
+                            // Update semua produk yang memiliki kategori ini
+                            database.ref('products').orderByChild('category').equalTo(categoryName).once('value')
+                                .then(snapshot => {
+                                    const updates = {};
+                                    snapshot.forEach(childSnapshot => {
+                                        updates[`products/${childSnapshot.key}/category`] = '';
+                                    });
+                                    
+                                    if (Object.keys(updates).length > 0) {
+                                        return database.ref().update(updates);
+                                    }
+                                    return Promise.resolve();
+                                })
+                                .then(() => {
+                                    loadingSwal.close();
+                                    Toast.fire({
+                                        icon: 'success',
+                                        title: 'Kategori berhasil dihapus!'
+                                    });
+                                    fetchCategories();
+                                    fetchProducts();
+                                })
+                                .catch(error => {
+                                    loadingSwal.close();
+                                    console.error('Error updating products: ', error);
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Gagal memperbarui produk',
+                                        text: error.message
+                                    });
+                                });
+                        })
+                        .catch(error => {
+                            loadingSwal.close();
+                            console.error('Error deleting category: ', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal menghapus kategori',
+                                text: error.message
+                            });
+                        });
+                })
+                .catch(error => {
+                    loadingSwal.close();
+                    console.error('Error getting category: ', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal mendapatkan data kategori',
+                        text: error.message
+                    });
+                });
+        }
+    });
+}
+
 // Ambil data produk untuk ditampilkan di list
 function fetchProducts() {
+    const loadingSwal = Swal.fire({
+        title: 'Memuat data...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     database.ref('products').once('value', (snapshot) => {
+        loadingSwal.close();
         const products = snapshot.val();
         productListContainer.innerHTML = '';
         
@@ -140,6 +359,7 @@ function fetchProducts() {
                     <div class="product-info">
                         <h3>${product.title}</h3>
                         <p>${product.description}</p>
+                        ${product.category ? `<span class="product-category">${product.category}</span>` : ''}
                     </div>
                     <div class="product-actions">
                         <button class="edit-btn" data-id="${key}">
@@ -165,18 +385,85 @@ function fetchProducts() {
         } else {
             productListContainer.innerHTML = '<p>Tidak ada produk yang tersedia.</p>';
         }
+    }).catch(error => {
+        loadingSwal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal memuat produk',
+            text: error.message
+        });
+    });
+}
+
+// Ambil data kategori
+function fetchCategories() {
+    database.ref('categories').once('value', (snapshot) => {
+        const categories = snapshot.val();
+        categoryListContainer.innerHTML = '';
+        productCategoryInput.innerHTML = '<option value="">Pilih Kategori</option>';
+        
+        if (categories) {
+            Object.keys(categories).forEach(key => {
+                const category = categories[key];
+                
+                // Tambahkan ke dropdown kategori
+                const option = document.createElement('option');
+                option.value = category.name;
+                option.textContent = category.name;
+                productCategoryInput.appendChild(option);
+                
+                // Tambahkan ke daftar kategori
+                const categoryItem = document.createElement('div');
+                categoryItem.className = 'category-item';
+                categoryItem.innerHTML = `
+                    <div class="category-info">
+                        <h4>${category.name}</h4>
+                    </div>
+                    <div class="category-actions">
+                        <button class="delete-category-btn" data-id="${key}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                categoryListContainer.appendChild(categoryItem);
+            });
+            
+            // Tambahkan event listener untuk tombol hapus kategori
+            document.querySelectorAll('.delete-category-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteCategory(btn.dataset.id));
+            });
+        } else {
+            categoryListContainer.innerHTML = '<p>Tidak ada kategori yang tersedia.</p>';
+        }
+    }).catch(error => {
+        console.error('Error fetching categories: ', error);
+        Toast.fire({
+            icon: 'error',
+            title: 'Gagal memuat kategori'
+        });
     });
 }
 
 // Edit produk
 function editProduct(productId) {
+    const loadingSwal = Swal.fire({
+        title: 'Memuat data produk...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     database.ref(`products/${productId}`).once('value', (snapshot) => {
+        loadingSwal.close();
         const product = snapshot.val();
         
         if (product) {
             productIdInput.value = productId;
             productTitleInput.value = product.title || '';
             productDescriptionInput.value = product.description || '';
+            productCategoryInput.value = product.category || '';
             shopeeLinkInput.value = product.shopeeLink || '';
             waNumberInput.value = product.waNumber || '';
             
@@ -215,27 +502,63 @@ function editProduct(productId) {
             // Scroll ke form
             document.querySelector('.product-form').scrollIntoView({ behavior: 'smooth' });
         }
+    }).catch(error => {
+        loadingSwal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal memuat produk',
+            text: error.message
+        });
     });
 }
 
 // Hapus produk
 function deleteProduct(productId) {
-    if (confirm('Apakah Anda yakin ingin menghapus produk ini?')) {
-        database.ref(`products/${productId}`).remove()
-            .then(() => {
-                alert('Produk berhasil dihapus!');
-                fetchProducts();
-            })
-            .catch(error => {
-                console.error('Error deleting product: ', error);
-                alert('Gagal menghapus produk');
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: "Produk yang dihapus tidak dapat dikembalikan!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const loadingSwal = Swal.fire({
+                title: 'Menghapus produk...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
             });
-    }
+
+            database.ref(`products/${productId}`).remove()
+                .then(() => {
+                    loadingSwal.close();
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Produk berhasil dihapus!'
+                    });
+                    fetchProducts();
+                })
+                .catch(error => {
+                    loadingSwal.close();
+                    console.error('Error deleting product: ', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal menghapus produk',
+                        text: error.message
+                    });
+                });
+        }
+    });
 }
 
-// Load produk saat halaman dimuat
+// Load produk dan kategori saat halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
     fetchProducts();
+    fetchCategories();
     
     // Inisialisasi tombol hapus untuk input gambar pertama
     document.querySelector('.remove-image-btn').addEventListener('click', function() {
