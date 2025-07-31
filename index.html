@@ -46,8 +46,14 @@
         <!-- Filter Kategori -->
         <div class="category-filter">
             <h2>Kategori Produk</h2>
-            <div class="category-tags" id="categoryTags">
-                <!-- Kategori akan diisi oleh JavaScript -->
+            <div class="category-dropdown">
+                <button class="dropdown-toggle" id="categoryDropdown">
+                    <span id="selectedCategory">Semua Kategori</span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="categoryDropdownMenu">
+                    <!-- Kategori akan diisi oleh JavaScript -->
+                </div>
             </div>
         </div>
 
@@ -57,6 +63,37 @@
         <!-- Tombol Load More -->
         <div class="load-more-container">
             <button id="loadMoreBtn" class="load-more-btn">Tampilkan Lebih Banyak</button>
+        </div>
+
+        <!-- Trusted By Section -->
+        <div class="trusted-by">
+            <h2>Telah Dipercaya Oleh</h2>
+            <div class="trusted-logos">
+                <div class="logo-item">
+                    <img src="Pertamina_Logo.svg" alt="Pertamina">
+                </div>
+                <div class="logo-item">
+                    <img src="idtIN9lPt1_logos.png" alt="Krakatau Posco">
+                </div>
+                <div class="logo-item">
+                    <img src="https://static.wikia.nocookie.net/logopedia/images/0/0d/Inalum_%282019%29.svg/revision/latest/scale-to-width-down/1000?cb=20210102054822" alt="Inalum">
+                </div>
+                <div class="logo-item">
+                    <img src="Logo_PLN.svg" alt="PLN">
+                </div>
+                <div class="logo-item">
+                    <img src="Logo_Pertamina_Gas_Negara.svg" alt="PGN">
+                </div>
+                <div class="logo-item">
+                    <img src="pelindo.png" alt="Pelindo">
+                </div>
+                <div class="logo-item">
+                    <img src="freeport.jpeg" alt="freeport">
+                </div>
+                <div class="logo-item">
+                    <img src="https://www.pupuk-indonesia.com/assets/img/logo.png" alt="Pupuk h">
+                </div>
+            </div>
         </div>
     </main>
 
@@ -90,25 +127,43 @@
 
     <footer>
         <div class="footer-content container">
-            <div class="footer-section">
+            <div class="footer-section about">
                 <h3>Tentang Kami</h3>
                 <p>Spesialis peralatan explosion proof dengan kualitas terbaik dan harga kompetitif.</p>
+                <div class="social-icons">
+    <!-- Tokopedia -->
+    <a href="https://www.tokopedia.com/3d-bismi-explosion-proof" target="_blank">
+        <img src="tokped.svg" alt="Tokopedia" class="social-icon">
+    </a>
+    
+    <!-- Shopee -->
+    <a href="https://shopee.co.id/3d_bismi_alfatih" target="_blank">
+        <img src="Shopee_logo.svg" alt="Shopee" class="social-icon">
+    </a>
+    
+    <!-- WhatsApp -->
+    <a href="https://wa.me/6281389617799?text=Hala%20pak%20saya%20ingin%20bertanya%20tentang%20produk%20yang%20bapak%20jual%20" target="_blank">
+        <img src="WhatsApp.svg" alt="WhatsApp" class="social-icon">
+    </a>
+</div>
             </div>
-            <div class="footer-section">
-                <h3>Alamat Toko</h3>
+            <div class="footer-section contact">
+                <h3>Kontak Kami</h3>
                 <p><i class="fas fa-map-marker-alt"></i> TM Harco Glodok Lt.3 Blok D No.51 Jl. Hayam Waruk Jakarta 11180</p>
-                <p><i class="fas fa-clock"></i> Buka: Senin-Minggu, 08:00-17:00</p>
-            </div>
-            <div class="footer-section">
-                <h3>Kontak & Bantuan</h3>
                 <p><i class="fas fa-phone"></i> <a href="tel:+6281389617799">0813-8961-7799</a></p>
                 <p><i class="fas fa-envelope"></i> <a href="mailto:daman.hri@gmail.com">daman.hri@gmail.com</a></p>
-                <p><i class="fas fa-question-circle"></i> <a href="#">Pusat Bantuan</a></p>
+                <p><i class="fas fa-clock"></i> Buka: Senin-Minggu, 08:00-17:00</p>
             </div>
         </div>
         <div class="footer-bottom">
             <div class="container">
-                <p>&copy; 2023 3D Bismi Explosion Proof. All rights reserved.</p>
+                <div class="footer-bottom-content">
+                    <p>&copy; 2023 3D Bismi Explosion Proof. All rights reserved.</p>
+                    <div class="footer-links">
+                        <a href="#">Kebijakan Privasi</a>
+                        <a href="#">Syarat & Ketentuan</a>
+                    </div>
+                </div>
             </div>
         </div>
     </footer>

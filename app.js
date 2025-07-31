@@ -26,11 +26,13 @@ const waBtn = document.getElementById('waBtn');
 const closeModal = document.querySelector('.close');
 const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
-const categoryTagsContainer = document.getElementById('categoryTags');
 const loadMoreBtn = document.getElementById('loadMoreBtn');
 const prevSlideBtn = document.getElementById('prevSlide');
 const nextSlideBtn = document.getElementById('nextSlide');
 const slideDotsContainer = document.getElementById('slideDots');
+const categoryDropdown = document.getElementById('categoryDropdown');
+const categoryDropdownMenu = document.getElementById('categoryDropdownMenu');
+const selectedCategory = document.getElementById('selectedCategory');
 
 // Variabel global
 let allProducts = [];
@@ -70,7 +72,7 @@ function fetchProducts() {
             
             filteredProducts = [...allProducts];
             renderProducts();
-            renderCategoryTags(categories);
+            renderCategoryDropdown(categories);
         } else {
             console.log("Tidak ada produk ditemukan");
             productsContainer.innerHTML = '<p class="no-products">Tidak ada produk yang tersedia saat ini.</p>';
@@ -126,37 +128,37 @@ function renderProducts() {
     loadMoreBtn.style.display = visibleProducts >= filteredProducts.length ? 'none' : 'inline-block';
 }
 
-// Fungsi untuk merender kategori
-function renderCategoryTags(categories) {
-    console.log("Merender kategori...", categories);
+// Fungsi untuk merender dropdown kategori
+function renderCategoryDropdown(categories) {
+    console.log("Merender dropdown kategori...", categories);
     
-    categoryTagsContainer.innerHTML = '';
+    categoryDropdownMenu.innerHTML = '';
     
-    // Tambahkan tombol "Semua Kategori"
-    const allCategoriesTag = document.createElement('div');
-    allCategoriesTag.className = 'category-tag active';
-    allCategoriesTag.textContent = 'Semua Kategori';
-    allCategoriesTag.addEventListener('click', () => {
-        document.querySelectorAll('.category-tag').forEach(tag => tag.classList.remove('active'));
-        allCategoriesTag.classList.add('active');
+    // Tambahkan opsi "Semua Kategori"
+    const allCategoriesOption = document.createElement('div');
+    allCategoriesOption.className = 'dropdown-item';
+    allCategoriesOption.textContent = 'Semua Kategori';
+    allCategoriesOption.addEventListener('click', () => {
+        selectedCategory.textContent = 'Semua Kategori';
         currentCategory = '';
         filterProducts();
+        categoryDropdownMenu.classList.remove('show');
     });
-    categoryTagsContainer.appendChild(allCategoriesTag);
+    categoryDropdownMenu.appendChild(allCategoriesOption);
     
     // Tambahkan kategori dari database
     if (categories) {
         Object.values(categories).forEach(category => {
-            const categoryTag = document.createElement('div');
-            categoryTag.className = 'category-tag';
-            categoryTag.textContent = category.name;
-            categoryTag.addEventListener('click', () => {
-                document.querySelectorAll('.category-tag').forEach(tag => tag.classList.remove('active'));
-                categoryTag.classList.add('active');
+            const categoryOption = document.createElement('div');
+            categoryOption.className = 'dropdown-item';
+            categoryOption.textContent = category.name;
+            categoryOption.addEventListener('click', () => {
+                selectedCategory.textContent = category.name;
                 currentCategory = category.name;
                 filterProducts();
+                categoryDropdownMenu.classList.remove('show');
             });
-            categoryTagsContainer.appendChild(categoryTag);
+            categoryDropdownMenu.appendChild(categoryOption);
         });
     }
 }
@@ -335,6 +337,17 @@ document.querySelectorAll('.dot').forEach((dot, index) => {
     });
 });
 
+// Dropdown kategori
+categoryDropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+    categoryDropdownMenu.classList.toggle('show');
+});
+
+// Tutup dropdown saat klik di luar
+window.addEventListener('click', () => {
+    categoryDropdownMenu.classList.remove('show');
+});
+
 // Error handling global
 window.addEventListener('error', function(event) {
     console.error("Error global:", event.error);
@@ -351,3 +364,110 @@ window.addEventListener('DOMContentLoaded', () => {
         productsContainer.innerHTML = '<p class="no-products">Gagal memuat data. Silakan refresh halaman.</p>';
     }
 });
+// Pencarian produk
+searchBtn.addEventListener('click', () => {
+    currentSearchTerm = searchInput.value.trim();
+    filterProducts();
+});
+
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        currentSearchTerm = searchInput.value.trim();
+        filterProducts();
+    }
+});
+
+// Tombol load more
+loadMoreBtn.addEventListener('click', function() {
+    this.classList.add('clicked');
+    setTimeout(() => this.classList.remove('clicked'), 500);
+    
+    visibleProducts += productsPerLoad;
+    renderProducts();
+    
+    // Scroll halus ke produk baru
+    const lastProduct = document.querySelector('.product-card:last-child');
+    if (lastProduct) {
+        lastProduct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+});
+
+// Event listeners untuk slider
+prevSlideBtn.addEventListener('click', () => {
+    const slides = document.querySelectorAll('.banner-slide');
+    currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+    updateSlider(slides, document.querySelectorAll('.dot'));
+    resetSliderTimer();
+});
+
+nextSlideBtn.addEventListener('click', () => {
+    const slides = document.querySelectorAll('.banner-slide');
+    currentSlide = (currentSlide + 1) % slides.length;
+    updateSlider(slides, document.querySelectorAll('.dot'));
+    resetSliderTimer();
+});
+
+// Event listeners untuk dots
+document.querySelectorAll('.dot').forEach((dot, index) => {
+    dot.addEventListener('click', () => {
+        currentSlide = index;
+        updateSlider(document.querySelectorAll('.banner-slide'), document.querySelectorAll('.dot'));
+        resetSliderTimer();
+    });
+});
+
+// Error handling global
+window.addEventListener('error', function(event) {
+    console.error("Error global:", event.error);
+    productsContainer.innerHTML = '<p class="no-products">Terjadi kesalahan. Silakan refresh halaman.</p>';
+});
+
+// Load produk dan mulai slider saat halaman dimuat
+window.addEventListener('DOMContentLoaded', () => {
+    try {
+        fetchProducts();
+        startSlider();
+    } catch (error) {
+        console.error("Error inisialisasi:", error);
+        productsContainer.innerHTML = '<p class="no-products">Gagal memuat data. Silakan refresh halaman.</p>';
+    }
+});
+// Category Navigation
+const categoryTags = document.querySelector('.category-tags');
+const prevCategoryBtn = document.createElement('div');
+const nextCategoryBtn = document.createElement('div');
+
+prevCategoryBtn.className = 'category-nav prev';
+prevCategoryBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+nextCategoryBtn.className = 'category-nav next';
+nextCategoryBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+
+document.querySelector('.category-tags-container').prepend(prevCategoryBtn);
+document.querySelector('.category-tags-container').append(nextCategoryBtn);
+
+// Check if navigation buttons are needed
+function checkCategoryNav() {
+    const tags = categoryTags;
+    const containerWidth = tags.parentElement.clientWidth;
+    const tagsWidth = tags.scrollWidth;
+    
+    prevCategoryBtn.classList.toggle('hidden', tags.scrollLeft <= 10);
+    nextCategoryBtn.classList.toggle('hidden', 
+        tags.scrollLeft >= (tagsWidth - containerWidth - 10));
+}
+
+// Navigation handlers
+prevCategoryBtn.addEventListener('click', () => {
+    categoryTags.scrollBy({ left: -200, behavior: 'smooth' });
+});
+
+nextCategoryBtn.addEventListener('click', () => {
+    categoryTags.scrollBy({ left: 200, behavior: 'smooth' });
+});
+
+// Check on scroll
+categoryTags.addEventListener('scroll', checkCategoryNav);
+
+// Initial check
+window.addEventListener('load', checkCategoryNav);
+window.addEventListener('resize', checkCategoryNav);
